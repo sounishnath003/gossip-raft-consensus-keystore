@@ -1,0 +1,15 @@
+Fault-Tolerant Distributed Key-Value Store
+
+Mission: Implement a sharded & replicated in-memory K/V system that
+
+    Distributes keys evenly across N nodes via consistent hashing (≤ 25 % key movement on rebalance).
+    Replicates each shard with Raft to guarantee strong consistency and leader election.
+    Survives node crashes: as long as a quorum lives, reads and writes succeed.
+
+
+Use an incremental approach:
+1.  **Build a Single-Node Store:** Start with a basic, in-memory key-value store.
+2.  **Add a gRPC API:** Expose the store's functions over the network using gRPC.
+3.  **Implement Distribution:** Introduce a consistent hashing ring to distribute keys across multiple nodes. At this stage, the system is distributed but not yet fault-tolerant.
+4.  **Add Consensus with Raft:** Integrate a Raft library to replicate data for each shard, ensuring fault tolerance and strong consistency. This is the most complex step.
+5.  **Implement Cluster Management:** Build the logic for nodes to join and leave the cluster, safely rebalancing data as needed.
