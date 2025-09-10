@@ -102,3 +102,22 @@ BenchmarkGet-8        20847          56783 ns/op        8949 B/op        171 all
 -   **`ns/op` (Nanoseconds per operation):** This is the average time it took to execute a single operation. A lower number indicates better performance.
 -   **`B/op` (Bytes per operation):** This represents the average amount of memory allocated per operation. A lower number is better, as it indicates more efficient memory usage.
 -   **`allocs/op` (Allocations per operation):** This is the average number of memory allocations made per operation. Fewer allocations generally lead to less work for the garbage collector and better performance.
+
+### Deriving Latency and Throughput
+
+From these metrics, we can derive the latency and throughput of the system.
+
+-   **Latency:** The `ns/op` value directly represents the average latency for a single operation.
+-   **Throughput:** Throughput is the number of operations the system can handle per second. It can be calculated as the inverse of the latency (`1,000,000,000 ns/second / ns/op`).
+
+### System Performance
+
+Based on the benchmark results, the current system performance is as follows:
+
+-   **Put Operation:**
+    -   **Latency:** **57,753 ns/op** (approximately 57.75 microseconds)
+    -   **Throughput:** **~17,315 operations/second**
+
+-   **Get Operation:**
+    -   **Latency:** **56,783 ns/op** (approximately 56.78 microseconds)
+    -   **Throughput:** **~17,611 operations/second**
