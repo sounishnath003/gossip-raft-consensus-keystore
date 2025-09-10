@@ -190,9 +190,12 @@ func main() {
 	flag.Parse()
 
 	startNode(*port, *raftPort, *raftDir, *nodeID, *joinAddr, *bootstrap)
+
+	// Block forever to keep the main goroutine alive.
+	select {}
 }
 
-func startNode(port, raftPort int, raftDir, nodeID, joinAddr string, bootstrap bool) {
+func startNode(port, raftPort int, raftDir, nodeID, joinAddr string, bootstrap bool) (*grpc.Server, *raft.Raft) {
 	addr := fmt.Sprintf("localhost:%d", port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -275,10 +278,14 @@ func startNode(port, raftPort int, raftDir, nodeID, joinAddr string, bootstrap b
 
 	go server.startGossip()
 
-	log.Printf("server listening at %v", lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
+	go func() {
+		log.Printf("server listening at %v", lis.Addr())
+		if err := s.Serve(lis); err != nil {
+			log.Printf("failed to serve: %v", err)
+		}
+	}()
+
+	return s, r
 }
 
 func (s *server) startGossip() {

@@ -79,3 +79,26 @@ To test the system's fault tolerance, you can stop one of the nodes (e.g., by pr
 ```sh
 go test -v
 ```
+
+## Performance
+
+Benchmarks were run to measure the performance of `Put` and `Get` operations. You can run the benchmarks yourself using the following command:
+
+```sh
+go test -bench=. -benchmem -run=^$
+```
+
+### Results
+
+Here are the results from a sample run:
+
+```
+BenchmarkPut-8        20599          57753 ns/op        8949 B/op        171 allocs/op
+BenchmarkGet-8        20847          56783 ns/op        8949 B/op        171 allocs/op
+```
+
+### Understanding the Metrics
+
+-   **`ns/op` (Nanoseconds per operation):** This is the average time it took to execute a single operation. A lower number indicates better performance.
+-   **`B/op` (Bytes per operation):** This represents the average amount of memory allocated per operation. A lower number is better, as it indicates more efficient memory usage.
+-   **`allocs/op` (Allocations per operation):** This is the average number of memory allocations made per operation. Fewer allocations generally lead to less work for the garbage collector and better performance.
