@@ -25,6 +25,18 @@ The project is structured into the following components:
 
 The system uses a gossip protocol to ensure eventual consistency across all nodes. Each node periodically selects a random peer and shares its current state. When a node receives a gossip message, it merges the received state with its own using a "last-write-wins" strategy. This mechanism allows information to propagate through the cluster, ensuring that all nodes eventually converge to a consistent view of the data.
 
+
+### Thread-Safe and Concurrent Design
+
+1.  **Core Key-Value Store:** The central data store (`Store` struct in `main.go`) is designed to be thread-safe. It uses a `sync.RWMutex`, which is the correct synchronization primitive for a data structure that has both reads and writes. This ensures that:
+    *   Multiple goroutines can safely read data concurrently (`Get` method).
+    *   Only one goroutine can write data at a time, preventing data corruption (`Put` method).
+
+2.  **Concurrent Goroutines for High Load:** The application effectively uses goroutines to handle concurrent operations:
+    *   **gRPC Server:** The main gRPC server runs in its own goroutine. The gRPC framework itself is designed for high performance and handles each incoming client request in a separate goroutine, allowing the server to manage many simultaneous connections.
+    *   **Gossip Protocol:** The gossiping mechanism runs in a dedicated background goroutine (`startGossip` in `main.go`), periodically communicating with other nodes without blocking the main application flow.
+    *   **Raft Consensus:** The project uses the `hashicorp/raft` library, a mature and battle-tested implementation of the Raft consensus algorithm. This library is inherently concurrent and designed to manage a distributed state machine in a fault-tolerant way.
+
 ## How to Run
 
 ### Prerequisites
@@ -94,7 +106,7 @@ Here are the results from a sample run:
 
 ```
 BenchmarkPut-8        20599          57753 ns/op        8949 B/op        171 allocs/op
-BenchmarkGet-8        20847          56783 ns/op        8949 B/op        171 allocs/op
+BenchmarkGet-8        21543             59570 ns/op            8949 B/op        171 allocs/op
 ```
 
 ### Understanding the Metrics
@@ -121,3 +133,7 @@ Based on the benchmark results, the current system performance is as follows:
 -   **Get Operation:**
     -   **Latency:** **56,783 ns/op** (approximately 56.78 microseconds)
     -   **Throughput:** **~17,611 operations/second**
+
+Based on my analysis of the codebase, here is the answer to your question:
+
+**Yes, the project is largely implemented to be thread-safe and uses concurrent goroutines to handle load, but there is a potential race condition in one part of the code.**

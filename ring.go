@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"sort"
 	"strconv"
+	"sync"
 )
 
 // Ring represents the consistent hashing ring.
@@ -13,6 +14,7 @@ type Ring struct {
 	hashes    []uint32
 	hashNode  map[uint32]string
 	replicas  int
+	mu        sync.RWMutex
 }
 
 // NewRing creates a new consistent hashing ring.
@@ -27,6 +29,9 @@ func NewRing(replicas int) *Ring {
 
 // AddNode adds a node to the ring.
 func (r *Ring) AddNode(node string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.nodes[node] = struct{}{}
 	for i := 0; i < r.replicas; i++ {
 		hash := crc32.ChecksumIEEE([]byte(node + strconv.Itoa(i)))
@@ -38,6 +43,9 @@ func (r *Ring) AddNode(node string) {
 
 // GetNode returns the node responsible for the given key.
 func (r *Ring) GetNode(key string) string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	if len(r.hashes) == 0 {
 		return ""
 	}
@@ -54,6 +62,9 @@ func (r *Ring) GetNode(key string) string {
 
 // GetRandomNode returns a random node from the ring, excluding the given node.
 func (r *Ring) GetRandomNode(exclude string) string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	nodes := make([]string, 0, len(r.nodes))
 	for node := range r.nodes {
 		if node != exclude {
