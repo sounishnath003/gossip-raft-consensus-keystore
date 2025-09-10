@@ -75,3 +75,7 @@ This will send a `Put` request to store a key-value pair and then a `Get` reques
 ### 4. Test Fault Tolerance
 
 To test the system's fault tolerance, you can stop one of the nodes (e.g., by pressing `Ctrl+C` in its terminal). Then, run the client again. The `Put` and `Get` operations should still succeed as long as a majority of the nodes (a quorum) are still running.
+
+```sh
+go test -v
+```
