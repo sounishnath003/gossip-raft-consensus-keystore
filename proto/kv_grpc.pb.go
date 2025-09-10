@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	KV_Get_FullMethodName  = "/proto.KV/Get"
-	KV_Put_FullMethodName  = "/proto.KV/Put"
-	KV_Join_FullMethodName = "/proto.KV/Join"
+	KV_Get_FullMethodName    = "/proto.KV/Get"
+	KV_Put_FullMethodName    = "/proto.KV/Put"
+	KV_Join_FullMethodName   = "/proto.KV/Join"
+	KV_Gossip_FullMethodName = "/proto.KV/Gossip"
 )
 
 // KVClient is the client API for KV service.
@@ -31,6 +32,7 @@ type KVClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	Put(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error)
 	Join(ctx context.Context, in *JoinRequest, opts ...grpc.CallOption) (*JoinResponse, error)
+	Gossip(ctx context.Context, in *GossipRequest, opts ...grpc.CallOption) (*GossipResponse, error)
 }
 
 type kVClient struct {
@@ -71,6 +73,16 @@ func (c *kVClient) Join(ctx context.Context, in *JoinRequest, opts ...grpc.CallO
 	return out, nil
 }
 
+func (c *kVClient) Gossip(ctx context.Context, in *GossipRequest, opts ...grpc.CallOption) (*GossipResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GossipResponse)
+	err := c.cc.Invoke(ctx, KV_Gossip_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KVServer is the server API for KV service.
 // All implementations must embed UnimplementedKVServer
 // for forward compatibility.
@@ -78,6 +90,7 @@ type KVServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 	Put(context.Context, *PutRequest) (*PutResponse, error)
 	Join(context.Context, *JoinRequest) (*JoinResponse, error)
+	Gossip(context.Context, *GossipRequest) (*GossipResponse, error)
 	mustEmbedUnimplementedKVServer()
 }
 
@@ -96,6 +109,9 @@ func (UnimplementedKVServer) Put(context.Context, *PutRequest) (*PutResponse, er
 }
 func (UnimplementedKVServer) Join(context.Context, *JoinRequest) (*JoinResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Join not implemented")
+}
+func (UnimplementedKVServer) Gossip(context.Context, *GossipRequest) (*GossipResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Gossip not implemented")
 }
 func (UnimplementedKVServer) mustEmbedUnimplementedKVServer() {}
 func (UnimplementedKVServer) testEmbeddedByValue()            {}
@@ -172,6 +188,24 @@ func _KV_Join_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KV_Gossip_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GossipRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KVServer).Gossip(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KV_Gossip_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KVServer).Gossip(ctx, req.(*GossipRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KV_ServiceDesc is the grpc.ServiceDesc for KV service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,6 +224,10 @@ var KV_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Join",
 			Handler:    _KV_Join_Handler,
+		},
+		{
+			MethodName: "Gossip",
+			Handler:    _KV_Gossip_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -2,6 +2,7 @@ package main
 
 import (
 	"hash/crc32"
+	"math/rand"
 	"sort"
 	"strconv"
 )
@@ -49,4 +50,20 @@ func (r *Ring) GetNode(key string) string {
 	}
 
 	return r.hashNode[r.hashes[idx]]
+}
+
+// GetRandomNode returns a random node from the ring, excluding the given node.
+func (r *Ring) GetRandomNode(exclude string) string {
+	nodes := make([]string, 0, len(r.nodes))
+	for node := range r.nodes {
+		if node != exclude {
+			nodes = append(nodes, node)
+		}
+	}
+
+	if len(nodes) == 0 {
+		return ""
+	}
+
+	return nodes[rand.Intn(len(nodes))]
 }

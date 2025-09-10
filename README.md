@@ -6,7 +6,8 @@ This project is an implementation of a sharded and replicated in-memory key-valu
 
 -   **Distributed:** Keys are distributed across multiple nodes.
 -   **Fault-Tolerant:** The system can tolerate node failures as long as a quorum of nodes is alive.
--   **Strongly Consistent:** All reads and writes are strongly consistent, thanks to the Raft consensus algorithm.
+-   **Strongly Consistent:** All writes are strongly consistent, thanks to the Raft consensus algorithm.
+-   **Eventual Consistency:** The system uses a gossip protocol to ensure that all nodes eventually converge to the same state.
 -   **Cluster Management:** Nodes can dynamically join the cluster.
 
 ## Architecture
@@ -16,8 +17,13 @@ The project is structured into the following components:
 -   **`main.go`**: The main application file, responsible for starting the gRPC server and the Raft instance.
 -   **`raft.go`**: Implements the Raft Finite State Machine (FSM), which applies commands from the Raft log to the in-memory store.
 -   **`ring.go`**: A from-scratch implementation of a consistent hashing ring to map keys to nodes.
--   **`proto/kv.proto`**: The Protocol Buffers definition for the gRPC service, defining the `Put`, `Get`, and `Join` RPCs.
+-   **`gossip.go`**: Contains the implementation of the gossip protocol for state reconciliation.
+-   **`proto/kv.proto`**: The Protocol Buffers definition for the gRPC service, defining the `Put`, `Get`, `Join`, and `Gossip` RPCs.
 -   **`cli/main.go`**: A simple command-line client for interacting with the cluster.
+
+### Gossip Protocol
+
+The system uses a gossip protocol to ensure eventual consistency across all nodes. Each node periodically selects a random peer and shares its current state. When a node receives a gossip message, it merges the received state with its own using a "last-write-wins" strategy. This mechanism allows information to propagate through the cluster, ensuring that all nodes eventually converge to a consistent view of the data.
 
 ## How to Run
 

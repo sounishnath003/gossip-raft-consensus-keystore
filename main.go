@@ -112,7 +112,24 @@ func (s *server) Join(ctx context.Context, req *proto.JoinRequest) (*proto.JoinR
 		return nil, f.Error()
 	}
 
+	// Add the new node to the ring.
+	s.ring.AddNode(req.GrpcAddress)
+
 	return &proto.JoinResponse{}, nil
+}
+
+func (s *server) Gossip(ctx context.Context, req *proto.GossipRequest) (*proto.GossipResponse, error) {
+	s.store.mu.Lock()
+	defer s.store.mu.Unlock()
+
+	for key, value := range req.State {
+		// A simple last-write-wins merge strategy.
+		// In a real-world scenario, you might use vector clocks or other mechanisms
+		// to resolve conflicts.
+		s.store.data[key] = value
+	}
+
+	return &proto.GossipResponse{}, nil
 }
 
 func main() {
@@ -124,7 +141,11 @@ func main() {
 	joinAddr := flag.String("join_addr", "", "Address of a node to join")
 	flag.Parse()
 
-	addr := fmt.Sprintf("localhost:%d", *port)
+	startNode(*port, *raftPort, *raftDir, *nodeID, *joinAddr, *bootstrap)
+}
+
+func startNode(port, raftPort int, raftDir, nodeID, joinAddr string, bootstrap bool) {
+	addr := fmt.Sprintf("localhost:%d", port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -132,26 +153,26 @@ func main() {
 
 	// Setup Raft.
 	config := raft.DefaultConfig()
-	config.LocalID = raft.ServerID(*nodeID)
+	config.LocalID = raft.ServerID(nodeID)
 
-	raftAddr := fmt.Sprintf("localhost:%d", *raftPort)
+	raftAddr := fmt.Sprintf("localhost:%d", raftPort)
 	advertise, err := net.ResolveTCPAddr("tcp", raftAddr)
 	if err != nil {
 		log.Fatalf("failed to resolve tcp addr: %v", err)
 	}
 
 	// Create the raft directory if it doesn't exist.
-	if err := os.MkdirAll(*raftDir, 0700); err != nil {
+	if err := os.MkdirAll(raftDir, 0700); err != nil {
 		log.Fatalf("failed to create raft directory: %v", err)
 	}
 
 	// Setup Raft dependencies.
-	logStore, err := raftboltdb.NewBoltStore(filepath.Join(*raftDir, "raft.db"))
+	logStore, err := raftboltdb.NewBoltStore(filepath.Join(raftDir, "raft.db"))
 	if err != nil {
 		log.Fatalf("failed to create bolt store: %v", err)
 	}
 	stableStore := logStore
-	snapshotStore, err := raft.NewFileSnapshotStore(*raftDir, 2, os.Stderr)
+	snapshotStore, err := raft.NewFileSnapshotStore(raftDir, 2, os.Stderr)
 	if err != nil {
 		log.Fatalf("failed to create snapshot store: %v", err)
 	}
@@ -167,7 +188,7 @@ func main() {
 		log.Fatalf("failed to create raft: %v", err)
 	}
 
-	if *bootstrap {
+	if bootstrap {
 		configuration := raft.Configuration{
 			Servers: []raft.Server{
 				{
@@ -177,17 +198,18 @@ func main() {
 			},
 		}
 		r.BootstrapCluster(configuration)
-	} else if *joinAddr != "" {
+	} else if joinAddr != "" {
 		// Join an existing cluster.
-		conn, err := grpc.NewClient(*joinAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.NewClient(joinAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			log.Fatalf("failed to connect to join address: %v", err)
 		}
 		defer conn.Close()
 		client := proto.NewKVClient(conn)
 		_, err = client.Join(context.Background(), &proto.JoinRequest{
-			NodeId:      *nodeID,
+			NodeId:      nodeID,
 			RaftAddress: raftAddr,
+			GrpcAddress: addr,
 		})
 		if err != nil {
 			log.Fatalf("failed to join cluster: %v", err)
@@ -196,14 +218,54 @@ func main() {
 
 	s := grpc.NewServer()
 	ring := NewRing(10)
-	// In a real application, the node list would be managed dynamically.
-	ring.AddNode("localhost:50051")
-	ring.AddNode("localhost:50052")
-	ring.AddNode("localhost:50053")
+	ring.AddNode(addr)
 
-	proto.RegisterKVServer(s, &server{store: store, ring: ring, selfAddr: addr, raft: r})
+	server := &server{store: store, ring: ring, selfAddr: addr, raft: r}
+	proto.RegisterKVServer(s, server)
+
+	go server.startGossip()
+
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
+	}
+}
+
+func (s *server) startGossip() {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		s.gossip()
+	}
+}
+
+func (s *server) gossip() {
+	// Select a random peer to gossip with.
+	peer := s.ring.GetRandomNode(s.selfAddr)
+	if peer == "" {
+		return
+	}
+
+	// Connect to the peer.
+	conn, err := grpc.NewClient(peer, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("failed to connect to peer %s: %v", peer, err)
+		return
+	}
+	defer conn.Close()
+
+	client := proto.NewKVClient(conn)
+
+	s.store.mu.RLock()
+	state := make(map[string]string)
+	for k, v := range s.store.data {
+		state[k] = v
+	}
+	s.store.mu.RUnlock()
+
+	_, err = client.Gossip(context.Background(), &proto.GossipRequest{State: state})
+	if err != nil {
+		log.Printf("failed to gossip with peer %s: %v", peer, err)
 	}
 }

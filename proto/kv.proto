@@ -8,6 +8,7 @@ service KV {
   rpc Get(GetRequest) returns (GetResponse);
   rpc Put(PutRequest) returns (PutResponse);
   rpc Join(JoinRequest) returns (JoinResponse);
+  rpc Gossip(GossipRequest) returns (GossipResponse);
 }
 
 message GetRequest {
@@ -28,6 +29,13 @@ message PutResponse {}
 message JoinRequest {
   string node_id = 1;
   string raft_address = 2;
+  string grpc_address = 3;
 }
 
 message JoinResponse {}
+
+message GossipRequest {
+  map<string, string> state = 1;
+}
+
+message GossipResponse {}
