@@ -1,3 +1,6 @@
+// Package main implements a distributed key-value store.
+// This file contains the implementation of the gossip protocol, which is used
+// for node discovery and state synchronization.
 package main
 
 import (
@@ -9,6 +12,7 @@ import (
 )
 
 // Node represents a node in the cluster.
+// It contains the node's ID, address, and state.
 type Node struct {
 	ID      string
 	Address string
@@ -16,7 +20,7 @@ type Node struct {
 	mu      sync.Mutex
 }
 
-// NewNode creates a new node.
+// NewNode creates a new node with the given ID and address.
 func NewNode(id, address string) *Node {
 	return &Node{
 		ID:      id,
@@ -26,6 +30,7 @@ func NewNode(id, address string) *Node {
 }
 
 // Gossip starts the gossip protocol for the node.
+// It periodically selects a random peer and exchanges state with it.
 func (n *Node) Gossip(peers []*Node) {
 	for {
 		// Select a random peer to gossip with.
@@ -50,12 +55,15 @@ func (n *Node) sendState(peer *Node) {
 	defer conn.Close()
 
 	// Send the node's state to the peer.
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	for key, value := range n.State {
 		fmt.Fprintf(conn, "%s:%s\n", key, value)
 	}
 }
 
-// handleConn handles an incoming connection.
+// handleConn handles an incoming connection from a peer.
+// It reads the peer's state and updates the node's state accordingly.
 func (n *Node) handleConn(conn net.Conn) {
 	defer conn.Close()
 

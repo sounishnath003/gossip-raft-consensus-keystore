@@ -1,3 +1,4 @@
+// Package main implements a simple command-line client for the distributed key-value store.
 package main
 
 import (
@@ -11,7 +12,7 @@ import (
 )
 
 func main() {
-	// Connect to the first node.
+	// Set up a connection to the server.
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
@@ -19,17 +20,18 @@ func main() {
 	defer conn.Close()
 	c := proto.NewKVClient(conn)
 
+	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	// Put a key-value pair.
+	// Put a key-value pair into the store.
 	_, err = c.Put(ctx, &proto.PutRequest{Key: "hello", Value: "world"})
 	if err != nil {
 		log.Fatalf("could not put: %v", err)
 	}
 	log.Printf("Put 'hello' -> 'world'")
 
-	// Get the value for the key.
+	// Get the value for a key from the store.
 	r, err := c.Get(ctx, &proto.GetRequest{Key: "hello"})
 	if err != nil {
 		log.Fatalf("could not get: %v", err)

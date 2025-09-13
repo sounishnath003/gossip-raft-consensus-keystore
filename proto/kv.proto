@@ -4,38 +4,59 @@ package proto;
 
 option go_package = "distirbuted-key-store/proto";
 
+// The key-value store service definition.
 service KV {
+  // Get retrieves a value for a given key.
   rpc Get(GetRequest) returns (GetResponse);
+  // Put sets a key-value pair.
   rpc Put(PutRequest) returns (PutResponse);
+  // Join adds a new node to the cluster.
   rpc Join(JoinRequest) returns (JoinResponse);
+  // Gossip exchanges state with a peer.
   rpc Gossip(GossipRequest) returns (GossipResponse);
 }
 
+// The request message for the Get RPC.
 message GetRequest {
+  // The key to retrieve.
   string key = 1;
 }
 
+// The response message for the Get RPC.
 message GetResponse {
+  // The value for the requested key.
   string value = 1;
 }
 
+// The request message for the Put RPC.
 message PutRequest {
+  // The key to set.
   string key = 1;
+  // The value to set.
   string value = 2;
 }
 
+// The response message for the Put RPC.
 message PutResponse {}
 
+// The request message for the Join RPC.
 message JoinRequest {
+  // The ID of the new node.
   string node_id = 1;
+  // The Raft address of the new node.
   string raft_address = 2;
+  // The gRPC address of the new node.
   string grpc_address = 3;
 }
 
+// The response message for the Join RPC.
 message JoinResponse {}
 
+// The request message for the Gossip RPC.
 message GossipRequest {
+  // The state of the sending node.
   map<string, string> state = 1;
 }
 
+// The response message for the Gossip RPC.
 message GossipResponse {}

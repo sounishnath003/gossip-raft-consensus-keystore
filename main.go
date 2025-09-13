@@ -1,3 +1,5 @@
+// Package main implements a distributed key-value store.
+// It uses Raft for consensus and gRPC for communication between nodes.
 package main
 
 import (
@@ -22,6 +24,7 @@ import (
 )
 
 // Store is a simple in-memory key-value store.
+// It is safe for concurrent use.
 type Store struct {
 	mu   sync.RWMutex
 	data map[string]string
@@ -49,6 +52,7 @@ func (s *Store) Get(key string) (string, bool) {
 	return value, ok
 }
 
+// server is the gRPC server that implements the KV service.
 type server struct {
 	proto.UnimplementedKVServer
 	store    *Store
@@ -57,6 +61,9 @@ type server struct {
 	raft     *raft.Raft
 }
 
+// Put handles a Put request from a client.
+// If the current node is not the leader, it forwards the request to the leader.
+// Otherwise, it applies the command to the Raft log.
 func (s *server) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
 	if s.raft.State() != raft.Leader {
 		var leader raft.ServerAddress
@@ -111,6 +118,8 @@ func (s *server) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResp
 	return &proto.PutResponse{}, nil
 }
 
+// Get handles a Get request from a client.
+// It retrieves the value for the given key from the local store.
 func (s *server) Get(ctx context.Context, req *proto.GetRequest) (*proto.GetResponse, error) {
 	value, ok := s.store.Get(req.Key)
 	if !ok {
@@ -119,6 +128,9 @@ func (s *server) Get(ctx context.Context, req *proto.GetRequest) (*proto.GetResp
 	return &proto.GetResponse{Value: value}, nil
 }
 
+// Join handles a Join request from a new node.
+// If the current node is not the leader, it forwards the request to the leader.
+// Otherwise, it adds the new node to the Raft cluster and the consistent hashing ring.
 func (s *server) Join(ctx context.Context, req *proto.JoinRequest) (*proto.JoinResponse, error) {
 	if s.raft.State() != raft.Leader {
 		var leader raft.ServerAddress
@@ -166,6 +178,8 @@ func (s *server) Join(ctx context.Context, req *proto.JoinRequest) (*proto.JoinR
 	return &proto.JoinResponse{}, nil
 }
 
+// Gossip handles a Gossip request from a peer.
+// It merges the peer's state with the local state.
 func (s *server) Gossip(ctx context.Context, req *proto.GossipRequest) (*proto.GossipResponse, error) {
 	s.store.mu.Lock()
 	defer s.store.mu.Unlock()
@@ -181,6 +195,7 @@ func (s *server) Gossip(ctx context.Context, req *proto.GossipRequest) (*proto.G
 }
 
 func main() {
+	// Parse command-line flags.
 	port := flag.Int("port", 50051, "The server port")
 	raftPort := flag.Int("raft_port", 12000, "The raft port")
 	raftDir := flag.String("raft_dir", "/tmp/raft", "The raft data directory")
@@ -189,13 +204,17 @@ func main() {
 	joinAddr := flag.String("join_addr", "", "Address of a node to join")
 	flag.Parse()
 
+	// Start the node.
 	startNode(*port, *raftPort, *raftDir, *nodeID, *joinAddr, *bootstrap)
 
 	// Block forever to keep the main goroutine alive.
 	select {}
 }
 
+// startNode starts a new node in the cluster.
+// It initializes the gRPC server, Raft, and the consistent hashing ring.
 func startNode(port, raftPort int, raftDir, nodeID, joinAddr string, bootstrap bool) (*grpc.Server, *raft.Raft) {
+	// Create a new gRPC server.
 	addr := fmt.Sprintf("localhost:%d", port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -232,13 +251,17 @@ func startNode(port, raftPort int, raftDir, nodeID, joinAddr string, bootstrap b
 		log.Fatalf("failed to create tcp transport: %v", err)
 	}
 
+	// Create the key-value store and the FSM.
 	store := NewStore()
 	fsm := &fsm{store: store}
+
+	// Create the Raft instance.
 	r, err := raft.NewRaft(config, fsm, logStore, stableStore, snapshotStore, transport)
 	if err != nil {
 		log.Fatalf("failed to create raft: %v", err)
 	}
 
+	// Bootstrap the cluster if necessary.
 	if bootstrap {
 		configuration := raft.Configuration{
 			Servers: []raft.Server{
@@ -269,6 +292,7 @@ func startNode(port, raftPort int, raftDir, nodeID, joinAddr string, bootstrap b
 		}
 	}
 
+	// Create the gRPC server and register the KV service.
 	s := grpc.NewServer()
 	ring := NewRing(10)
 	ring.AddNode(addr)
@@ -276,8 +300,10 @@ func startNode(port, raftPort int, raftDir, nodeID, joinAddr string, bootstrap b
 	server := &server{store: store, ring: ring, selfAddr: addr, raft: r}
 	proto.RegisterKVServer(s, server)
 
+	// Start the gossip protocol.
 	go server.startGossip()
 
+	// Start the gRPC server in a separate goroutine.
 	go func() {
 		log.Printf("server listening at %v", lis.Addr())
 		if err := s.Serve(lis); err != nil {
@@ -288,6 +314,7 @@ func startNode(port, raftPort int, raftDir, nodeID, joinAddr string, bootstrap b
 	return s, r
 }
 
+// startGossip starts the gossip protocol for the server.
 func (s *server) startGossip() {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -297,6 +324,7 @@ func (s *server) startGossip() {
 	}
 }
 
+// gossip sends the server's state to a random peer.
 func (s *server) gossip() {
 	// Select a random peer to gossip with.
 	peer := s.ring.GetRandomNode(s.selfAddr)
@@ -314,6 +342,7 @@ func (s *server) gossip() {
 
 	client := proto.NewKVClient(conn)
 
+	// Get the current state of the store.
 	s.store.mu.RLock()
 	state := make(map[string]string)
 	for k, v := range s.store.data {
@@ -321,6 +350,7 @@ func (s *server) gossip() {
 	}
 	s.store.mu.RUnlock()
 
+	// Send the state to the peer.
 	_, err = client.Gossip(context.Background(), &proto.GossipRequest{State: state})
 	if err != nil {
 		log.Printf("failed to gossip with peer %s: %v", peer, err)

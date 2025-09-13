@@ -1,3 +1,6 @@
+// Package main implements a distributed key-value store.
+// This file contains the implementation of a consistent hashing ring, which is
+// used to distribute keys across the nodes in the cluster.
 package main
 
 import (
@@ -9,6 +12,7 @@ import (
 )
 
 // Ring represents the consistent hashing ring.
+// It stores the nodes in the cluster and their corresponding hashes.
 type Ring struct {
 	nodes     map[string]struct{}
 	hashes    []uint32
@@ -17,7 +21,7 @@ type Ring struct {
 	mu        sync.RWMutex
 }
 
-// NewRing creates a new consistent hashing ring.
+// NewRing creates a new consistent hashing ring with the given number of replicas.
 func NewRing(replicas int) *Ring {
 	return &Ring{
 		nodes:    make(map[string]struct{}),
@@ -28,6 +32,8 @@ func NewRing(replicas int) *Ring {
 }
 
 // AddNode adds a node to the ring.
+// It creates a number of virtual nodes (replicas) for the given node and
+// adds them to the ring.
 func (r *Ring) AddNode(node string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -41,7 +47,8 @@ func (r *Ring) AddNode(node string) {
 	sort.Slice(r.hashes, func(i, j int) bool { return r.hashes[i] < r.hashes[j] })
 }
 
-// GetNode returns the node responsible for the given key.
+// GetNode returns the node that is responsible for the given key.
+// It uses consistent hashing to find the node that is closest to the key in the ring.
 func (r *Ring) GetNode(key string) string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

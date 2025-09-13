@@ -52,6 +52,12 @@ First, ensure all dependencies are downloaded:
 go mod tidy
 ```
 
+Generate the GRPC protobufs
+
+```sh
+export PATH="$PATH:$(go env GOPATH)/bin" && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative proto/kv.proto
+```
+
 ### 2. Start the Cluster
 
 You will need to open three separate terminals to run a 3-node cluster.
