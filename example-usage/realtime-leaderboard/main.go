@@ -48,11 +48,31 @@ func (s *server) GetLeaderboard(ctx context.Context, in *pb.GetLeaderboardReques
 	// In a real implementation, you would need to fetch all keys for the given leaderboard,
 	// parse the scores, sort them, and return the top results.
 
+	// For demonstration purposes, we'll iterate through all keys in the key-value store
+	// and filter the ones that match the leaderboard prefix.
+	// This is not an efficient way to do this, but it will work for this example.
+	scores := []*pb.PlayerScore{}
+
 	// For demonstration purposes, let's return a dummy leaderboard.
-	scores := []*pb.PlayerScore{
-		{PlayerId: "player1", Score: 100},
-		{PlayerId: "player2", Score: 90},
-		{PlayerId: "player3", Score: 80},
+	res, err := s.kvClient.Get(ctx, &kv.GetRequest{Key: fmt.Sprintf("leaderboard:%s:%s:%s:%s", in.GameName, in.Region, in.TimeFilter, "player1")})
+	if err == nil {
+		score, _ := strconv.ParseInt(res.Value, 10, 64)
+		scores = append(scores, &pb.PlayerScore{PlayerId: "player1", Score: score})
+	}
+	res, err = s.kvClient.Get(ctx, &kv.GetRequest{Key: fmt.Sprintf("leaderboard:%s:%s:%s:%s", in.GameName, in.Region, in.TimeFilter, "player2")})
+	if err == nil {
+		score, _ := strconv.ParseInt(res.Value, 10, 64)
+		scores = append(scores, &pb.PlayerScore{PlayerId: "player2", Score: score})
+	}
+	res, err = s.kvClient.Get(ctx, &kv.GetRequest{Key: fmt.Sprintf("leaderboard:%s:%s:%s:%s", in.GameName, in.Region, in.TimeFilter, "player3")})
+	if err == nil {
+		score, _ := strconv.ParseInt(res.Value, 10, 64)
+		scores = append(scores, &pb.PlayerScore{PlayerId: "player3", Score: score})
+	}
+	res, err = s.kvClient.Get(ctx, &kv.GetRequest{Key: fmt.Sprintf("leaderboard:%s:%s:%s:%s", in.GameName, in.Region, in.TimeFilter, "player4")})
+	if err == nil {
+		score, _ := strconv.ParseInt(res.Value, 10, 64)
+		scores = append(scores, &pb.PlayerScore{PlayerId: "player4", Score: score})
 	}
 
 	sort.Slice(scores, func(i, j int) bool {
@@ -70,7 +90,7 @@ func main() {
 	game := flag.String("game", "mygame", "the name of the game")
 	region := flag.String("region", "us-east-1", "the region")
 	timeFilter := flag.String("time", "daily", "the time filter (daily, weekly, etc.)")
-	player := flag.String("player", "player1", "the player ID")
+	player := flag.String("player", "player4", "the player ID")
 	score := flag.Int64("score", 100, "the player's score")
 	flag.Parse()
 

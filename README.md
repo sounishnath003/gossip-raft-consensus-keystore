@@ -65,6 +65,11 @@ You will need to open three separate terminals to run a 3-node cluster.
 **Terminal 1: Start the first node (bootstrap node)**
 
 ```sh
+echo ("single node")
+go run . --bootstrap
+```
+OR
+```sh
 go run . --port=50051 --raft_port=12001 --node_id=node1 --raft_dir=/tmp/raft1 --bootstrap=true
 ```
 
