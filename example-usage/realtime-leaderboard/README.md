@@ -18,6 +18,13 @@ This project is an example of a real-time leaderboard service built on top of a 
 
 ### Server
 
+To start the distributed key store (raft consensus server) bootstrap
+
+```bash
+echo ("Run this command from the parent directory...")
+go run . --bootstrap
+```
+
 To start the leaderboard server, run the following command:
 
 ```bash
@@ -49,3 +56,13 @@ go run main.go --run client --command get
 ```
 
 You can also specify the game, region, and time filter for which you want the leaderboard using the `--game`, `--region`, and `--time` flags.
+
+## Ingesting Data
+
+To continuously ingest data for multiple players, you can use the `ingest` program. The script will run indefinitely until you stop it manually (e.g., with `Ctrl+C`).
+
+```bash
+go run ingest/main.go -n <number_of_players> --game <game_name> --region <region>
+```
+
+This will ingest data for the specified number of players with random scores in the given game and region. The scores are updated every second.
