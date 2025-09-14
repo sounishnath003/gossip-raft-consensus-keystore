@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package leaderboard;
+
+option go_package = "example-usage/realtime-leaderboard/proto";
+
+// The leaderboard service definition.
+service Leaderboard {
+  // UpdateScore adds or updates a player's score.
+  rpc UpdateScore(UpdateScoreRequest) returns (UpdateScoreResponse);
+  // GetLeaderboard retrieves the top players for a leaderboard.
+  rpc GetLeaderboard(GetLeaderboardRequest) returns (GetLeaderboardResponse);
+}
+
+// The request message for the UpdateScore RPC.
+message UpdateScoreRequest {
+  string game_name = 1;
+  string region = 2;
+  string time_filter = 3;
+  string player_id = 4;
+  int64 score = 5;
+}
+
+// The response message for the UpdateScore RPC.
+message UpdateScoreResponse {}
+
+// The request message for the GetLeaderboard RPC.
+message GetLeaderboardRequest {
+  string game_name = 1;
+  string region = 2;
+  string time_filter = 3;
+}
+
+// The response message for the GetLeaderboard RPC.
+message GetLeaderboardResponse {
+  repeated PlayerScore scores = 1;
+}
+
+message PlayerScore {
+  string player_id = 1;
+  int64 score = 2;
+}

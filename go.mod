@@ -1,4 +1,4 @@
-module distirbuted-key-store
+module github.com/sounishnath003/gossip-raft-consensus-keystore
 
 go 1.25.1
 

@@ -4,7 +4,7 @@ package main
 
 import (
 	"context"
-	"distirbuted-key-store/proto"
+	"github.com/sounishnath003/gossip-raft-consensus-keystore/proto"
 	"encoding/json"
 	"flag"
 	"fmt"
